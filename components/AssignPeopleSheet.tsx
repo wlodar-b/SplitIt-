@@ -8,6 +8,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing, typography } from '../constants/theme';
 import { formatPLN } from '../utils/currency';
+import { shareRange } from '../utils/split';
 import type { Person, ReceiptItem } from '../types';
 import { PersonAvatar } from './PersonAvatar';
 
@@ -36,7 +37,7 @@ export const AssignPeopleSheet = forwardRef<BottomSheet, Props>(
     if (!item) return null;
 
     const assignedCount = item.assignedPersonIds.length;
-    const sharePrice = assignedCount > 0 ? item.price / assignedCount : item.price;
+    const range = assignedCount > 0 ? shareRange(item.price, assignedCount) : null;
 
     return (
       <BottomSheet
@@ -57,9 +58,13 @@ export const AssignPeopleSheet = forwardRef<BottomSheet, Props>(
               <Text style={styles.itemPrice}>{formatPLN(item.price)}</Text>
             </View>
 
-            {assignedCount > 0 && (
+            {assignedCount > 0 && range && (
               <View style={styles.shareBadge}>
-                <Text style={styles.shareBadgeValue}>{formatPLN(sharePrice)}</Text>
+                <Text style={styles.shareBadgeValue}>
+                  {range.uneven
+                    ? `${formatPLN(range.min)}–${formatPLN(range.max)}`
+                    : formatPLN(range.min)}
+                </Text>
                 <Text style={styles.shareBadgeLabel}>/ os.</Text>
               </View>
             )}

@@ -8,6 +8,7 @@ import Animated, {
 
 import { colors, radius, spacing, typography } from '../constants/theme';
 import { formatPLN } from '../utils/currency';
+import { shareRange } from '../utils/split';
 import type { Person, ReceiptItem } from '../types';
 import { PersonAvatar } from './PersonAvatar';
 
@@ -21,7 +22,9 @@ export function ReceiptItemRow({ item, people, onPress }: Props) {
   const scale = useSharedValue(1);
   const assignedPeople = people.filter((p) => item.assignedPersonIds.includes(p.id));
   const isUnassigned = assignedPeople.length === 0;
-  const sharePrice = isUnassigned ? item.price : item.price / assignedPeople.length;
+  const range = isUnassigned
+    ? null
+    : shareRange(item.price, assignedPeople.length);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -47,9 +50,11 @@ export function ReceiptItemRow({ item, people, onPress }: Props) {
             <Text style={styles.name} numberOfLines={1}>
               {item.name}
             </Text>
-            {assignedPeople.length > 1 && (
+            {assignedPeople.length > 1 && range && (
               <Text style={styles.splitMeta}>
-                {formatPLN(sharePrice)} / os. × {assignedPeople.length}
+                {range.uneven
+                  ? `${formatPLN(range.min)}–${formatPLN(range.max)} / os. × ${assignedPeople.length}`
+                  : `${formatPLN(range.min)} / os. × ${assignedPeople.length}`}
               </Text>
             )}
           </View>

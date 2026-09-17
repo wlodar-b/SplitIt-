@@ -8,15 +8,17 @@ import type { Person, Receipt } from '../types';
 export const mockReceipt: Receipt = {
   placeName: 'Trattoria Bella Vita',
   date: '17 września 2026',
+  // Ceny celowo z groszami / niepodzielne przez 3, żeby od razu testować
+  // sprawiedliwe zaokrąglanie (np. 38,00 / 3 = 12,67 + 12,67 + 12,66).
   items: [
-    { id: 'item-1', name: 'Pizza Margherita', price: 32.0, quantity: 1, assignedPersonIds: [] },
+    { id: 'item-1', name: 'Pizza Margherita', price: 32.5, quantity: 1, assignedPersonIds: [] },
     { id: 'item-2', name: 'Pizza Diavola', price: 38.0, quantity: 1, assignedPersonIds: [] },
-    { id: 'item-3', name: 'Spaghetti Carbonara', price: 29.0, quantity: 1, assignedPersonIds: [] },
-    { id: 'item-4', name: 'Lasagne', price: 34.0, quantity: 1, assignedPersonIds: [] },
-    { id: 'item-5', name: 'Tiramisu', price: 18.0, quantity: 1, assignedPersonIds: [] },
+    { id: 'item-3', name: 'Spaghetti Carbonara', price: 29.9, quantity: 1, assignedPersonIds: [] },
+    { id: 'item-4', name: 'Lasagne', price: 33.5, quantity: 1, assignedPersonIds: [] },
+    { id: 'item-5', name: 'Tiramisu', price: 17.99, quantity: 1, assignedPersonIds: [] },
     { id: 'item-6', name: 'Wino domowe (karafka)', price: 45.0, quantity: 1, assignedPersonIds: [] },
-    { id: 'item-7', name: 'Coca-Cola 0.5l', price: 8.0, quantity: 1, assignedPersonIds: [] },
-    { id: 'item-8', name: 'Woda gazowana', price: 6.0, quantity: 1, assignedPersonIds: [] },
+    { id: 'item-7', name: 'Coca-Cola 0.5l', price: 7.5, quantity: 1, assignedPersonIds: [] },
+    { id: 'item-8', name: 'Woda gazowana', price: 5.99, quantity: 1, assignedPersonIds: [] },
   ],
 };
 

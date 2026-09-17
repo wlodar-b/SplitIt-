@@ -1,13 +1,15 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PersonAvatar } from '../components/PersonAvatar';
 import { colors, radius, spacing, typography } from '../constants/theme';
 import { useReceiptStore } from '../store/useReceiptStore';
 import { formatPLN } from '../utils/currency';
+import { buildShareMessage } from '../utils/shareMessage';
+import { splitAmountFair } from '../utils/split';
 import type { Person, ReceiptItem } from '../types';
 
 type BreakdownLine = {
@@ -26,11 +28,10 @@ export default function SummaryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  // Surowe dane ze store — pochodne wartości liczymy lokalnie w useMemo,
-  // żeby uniknąć re-renderów w kółko (patrz komentarz w app/index.tsx).
   const items = useReceiptStore((s) => s.items);
   const people = useReceiptStore((s) => s.people);
   const placeName = useReceiptStore((s) => s.placeName);
+  const date = useReceiptStore((s) => s.date);
   const archiveCurrentReceipt = useReceiptStore((s) => s.archiveCurrentReceipt);
 
   const { breakdowns, unassignedItems, receiptTotal } = useMemo(() => {
@@ -49,10 +50,11 @@ export default function SummaryScreen() {
         return;
       }
 
-      const share = item.price / splitCount;
+      const shares = splitAmountFair(item.price, item.assignedPersonIds);
       item.assignedPersonIds.forEach((personId) => {
         const entry = byPerson.get(personId);
         if (!entry) return;
+        const share = shares[personId] ?? 0;
         entry.total += share;
         entry.lines.push({ item, share, splitCount });
       });
@@ -83,19 +85,25 @@ export default function SummaryScreen() {
     );
   };
 
+  const handleShare = async () => {
+    const message = buildShareMessage({ placeName, date, items, people });
+    try {
+      await Share.share({ message, title: `SplitIt! — ${placeName}` });
+    } catch {
+      Alert.alert('Nie udało się udostępnić', 'Spróbuj ponownie.');
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Prezentacja jako modal wysuwany od dołu — ustawione tylko dla tego ekranu. */}
       <Stack.Screen options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
 
       <View style={styles.header}>
-        <View style={styles.headerSpacer} />
+        <Pressable onPress={handleShare} style={styles.shareButton} hitSlop={8}>
+          <Text style={styles.shareButtonText}>Udostępnij</Text>
+        </Pressable>
         <Text style={styles.headerTitle}>Podsumowanie</Text>
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.closeButton}
-          hitSlop={8}
-        >
+        <Pressable onPress={() => router.back()} style={styles.closeButton} hitSlop={8}>
           <Text style={styles.closeButtonText}>✕</Text>
         </Pressable>
       </View>
@@ -160,6 +168,9 @@ export default function SummaryScreen() {
       </ScrollView>
 
       <View style={[styles.finishBar, { paddingBottom: insets.bottom + spacing.md }]}>
+        <Pressable onPress={handleShare} style={styles.secondaryShare}>
+          <Text style={styles.secondaryShareText}>Udostępnij podsumowanie</Text>
+        </Pressable>
         <Pressable onPress={handleFinish}>
           <LinearGradient
             colors={colors.accentGradient}
@@ -187,12 +198,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.lg,
   },
-  headerSpacer: {
-    width: 32,
-  },
   headerTitle: {
     ...typography.sheetTitle,
     color: colors.textPrimary,
+  },
+  shareButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: radius.round,
+    backgroundColor: colors.card,
+  },
+  shareButtonText: {
+    ...typography.itemMeta,
+    color: colors.accentSecondary,
+    fontWeight: '700',
   },
   closeButton: {
     width: 32,
@@ -328,6 +347,21 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderColor: colors.divider,
+    gap: spacing.sm,
+  },
+  secondaryShare: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.round,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  secondaryShareText: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   finishGradient: {
     alignItems: 'center',

@@ -1,12 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PersonAvatar } from '../../components/PersonAvatar';
 import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useReceiptStore } from '../../store/useReceiptStore';
 import { formatPLN } from '../../utils/currency';
+import { buildShareMessage } from '../../utils/shareMessage';
+import { splitAmountFair } from '../../utils/split';
 import type { Person, ReceiptItem } from '../../types';
 
 type BreakdownLine = {
@@ -44,10 +46,11 @@ export default function HistoryDetailScreen() {
         unassigned.push(item);
         return;
       }
-      const share = item.price / splitCount;
+      const shares = splitAmountFair(item.price, item.assignedPersonIds);
       item.assignedPersonIds.forEach((personId) => {
         const entry = byPerson.get(personId);
         if (!entry) return;
+        const share = shares[personId] ?? 0;
         entry.total += share;
         entry.lines.push({ item, share, splitCount });
       });
@@ -55,6 +58,21 @@ export default function HistoryDetailScreen() {
 
     return { breakdowns: Array.from(byPerson.values()), unassignedItems: unassigned };
   }, [archived]);
+
+  const handleShare = async () => {
+    if (!archived) return;
+    const message = buildShareMessage({
+      placeName: archived.placeName,
+      date: archived.date,
+      items: archived.items,
+      people: archived.peopleSnapshot,
+    });
+    try {
+      await Share.share({ message, title: `SplitIt! — ${archived.placeName}` });
+    } catch {
+      Alert.alert('Nie udało się udostępnić', 'Spróbuj ponownie.');
+    }
+  };
 
   if (!archived) {
     return (
@@ -73,11 +91,16 @@ export default function HistoryDetailScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {archived.placeName}
         </Text>
-        <View style={styles.headerSpacer} />
+        <Pressable onPress={handleShare} style={styles.shareHeaderButton} hitSlop={8}>
+          <Text style={styles.shareHeaderText}>Udostępnij</Text>
+        </Pressable>
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + spacing.xxl + 64 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.totalCard}>
@@ -136,6 +159,12 @@ export default function HistoryDetailScreen() {
           </View>
         ))}
       </ScrollView>
+
+      <View style={[styles.shareBar, { paddingBottom: insets.bottom + spacing.md }]}>
+        <Pressable onPress={handleShare} style={styles.shareButton}>
+          <Text style={styles.shareButtonText}>Udostępnij podsumowanie</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -173,8 +202,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: spacing.sm,
   },
-  headerSpacer: {
-    width: 32,
+  shareHeaderButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: radius.round,
+    backgroundColor: colors.card,
+  },
+  shareHeaderText: {
+    ...typography.itemMeta,
+    color: colors.accentSecondary,
+    fontWeight: '700',
   },
   content: {
     paddingHorizontal: spacing.xl,
@@ -299,5 +336,25 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.itemMeta,
     color: colors.textSecondary,
+  },
+  shareBar: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderColor: colors.divider,
+  },
+  shareButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.round,
+    paddingVertical: spacing.md + 2,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  shareButtonText: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

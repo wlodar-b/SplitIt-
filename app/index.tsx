@@ -11,6 +11,7 @@ import { ReceiptItemRow } from '../components/ReceiptItemRow';
 import { SummaryFooter } from '../components/SummaryFooter';
 import { colors, spacing, typography } from '../constants/theme';
 import { useReceiptStore } from '../store/useReceiptStore';
+import { splitAmountFair } from '../utils/split';
 import type { ReceiptItem } from '../types';
 
 const FOOTER_RESERVED_SPACE = 190;
@@ -58,9 +59,9 @@ export default function ReceiptScreen() {
         unassignedSum += item.price;
         return;
       }
-      const share = item.price / n;
+      const shares = splitAmountFair(item.price, item.assignedPersonIds);
       item.assignedPersonIds.forEach((id) => {
-        totals[id] = (totals[id] ?? 0) + share;
+        totals[id] = (totals[id] ?? 0) + (shares[id] ?? 0);
       });
     });
 
