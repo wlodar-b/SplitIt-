@@ -1,145 +1,145 @@
 # SplitIt! 🧾✨
 
-**SplitIt!** to aplikacja mobilna (iOS, budowana w Expo/React Native), która rozwiązuje odwieczny problem wspólnych kolacji ze znajomymi: *"kto ile powinien zapłacić?"*.
+**SplitIt!** is a mobile app (iOS, built with Expo/React Native) that solves the classic problem of splitting restaurant bills with friends: *“who owes how much?”*
 
-Zamysł: po wspólnym wyjściu robisz zdjęcie paragonu, aplikacja rozpoznaje pozycje, a Ty w kilka dotknięć przypisujesz, kto co zamawiał. Na dole ekranu na żywo widzisz, ile wychodzi na każdą osobę.
+The idea: after a meal together, you take a photo of the receipt, the app reads the line items, and you assign who ordered what in a few taps. A sticky footer shows each person’s running total in real time.
 
-> **Stan projektu:** aktywny prototyp/MVP. Pełny flow (zdjęcie → weryfikacja pozycji → osoby → podział → podsumowanie) jest zbudowany i działa w Expo Go. **Sam silnik OCR wymaga development builda** — szczegóły niżej w [Skanowanie paragonu i OCR](#-skanowanie-paragonu-i-ocr).
+> **Project status:** active prototype/MVP. The full flow (photo → verify items → people → split → summary) is implemented and runs in Expo Go. **Cloud OCR uses Gemini** (see [Receipt scanning & OCR](#-receipt-scanning--ocr)); optional on-device OCR needs a development build.
 
-### Flow aplikacji
+### App flow
 
 ```
-/ (start)  →  /scan          →  /verify           →  /people         →  /split           →  /summary
-              zdjęcie + OCR     poprawa pozycji      kto przy stole     przypisywanie       kto ile płaci
-                                                                                            → historia
+/ (home)  →  /scan          →  /verify           →  /people         →  /split           →  /summary
+            photo + OCR        edit line items      who's at the table  assign items        who pays what
+                                                                                              → history
 ```
 
-Każdy krok da się pominąć lub wejść w niego bezpośrednio: z ekranu startowego można wpisać paragon ręcznie albo wczytać przykładowy, a rachunek w toku zawsze czeka na ekranie startowym w karcie „Rachunek w toku”.
+Every step can be skipped or entered directly: from the home screen you can enter a receipt manually or load a sample receipt, and an in-progress bill always appears on home in the **Receipt in progress** card.
 
 ---
 
-## 📱 Co już działa
+## 📱 What's working
 
-- **Ekran startowy** — skan paragonu, wpisanie ręczne, przykładowy paragon, wznowienie rachunku w toku i wejście w historię.
-- **Zdjęcie paragonu** — aparat lub galeria (`expo-image-picker`), z podglądem; działa w Expo Go.
-- **Weryfikacja paragonu** — pełna ręczna edycja pozycji (nazwa, cena), dodawanie i usuwanie, nazwa lokalu, live suma.
-- **Wirtualny paragon** — lista pozycji (nazwa + cena) w estetycznej, minimalistycznej formie.
-- **Przypisywanie osób do pozycji** — tap na pozycję otwiera dolny panel (Bottom Sheet) z chipsami osób; można zaznaczyć kilka naraz — cena dzieli się równo między zaznaczonych.
-- **Mini-avatary pod pozycją** — od razu widać, kto "bierze" dany koszt (stos kółek w kolorach osób).
-- **Sticky footer z live-podsumowaniem** — przyklejony pasek na dole, który na żywo przelicza sumę dla każdej osoby, plus ostrzeżenie o pozycjach jeszcze nie przypisanych.
-- **Ekran podsumowania** (`/summary`, modal wysuwany od dołu) — pełne rozpisanie "kto za co płaci", z sumami per osoba i listą pozycji ze wskazaniem podziału (np. `÷2`).
-- **Zarządzanie osobami** — dodawanie nowych osób (z automatycznym, ładnym kolorem) i usuwanie ich z pełnym czyszczeniem przypisań.
-- **Historia paragonów** — zakończenie rachunku archiwizuje go (ze snapshotem osób i sum) w historii; osobny ekran listy i szczegółów archiwalnego paragonu.
-- **Trwałość danych** — cały stan (osoby, bieżący paragon, historia) jest zapisywany lokalnie (`AsyncStorage`), więc zamknięcie aplikacji niczego nie resetuje.
-- **UI w stylu fintech** — dark mode, gradienty, blur (`expo-blur`), haptic feedback, płynne animacje (Reanimated) — inspirowane Apple Pay / Revolut.
+- **Home screen** — scan receipt, manual entry, sample receipt, resume in-progress bill, history.
+- **Receipt photo** — camera or gallery (`expo-image-picker`) with preview; works in Expo Go.
+- **Receipt verification** — full manual editing (name, price), add/remove items, venue name, live total.
+- **Virtual receipt** — line items (name + price) in a clean, receipt-like list.
+- **Assign people to items** — tap a line to open a bottom sheet with person chips; multi-select splits the price evenly.
+- **Mini avatars under each item** — see who shares each cost (stacked colored circles).
+- **Sticky footer with live totals** — per-person sums plus warnings for unassigned items.
+- **Summary screen** (`/summary`, bottom sheet modal) — full breakdown of who pays for what, with split hints (e.g. `÷2`).
+- **People management** — add people (auto-assigned colors) and remove them (clears assignments).
+- **Receipt history** — finishing a bill archives it (people snapshot + totals); list and detail screens.
+- **Persistence** — state (people, current receipt, history) is stored locally (`AsyncStorage`).
+- **Fintech-style UI** — dark mode, gradients, blur (`expo-blur`), haptics, Reanimated animations — inspired by Apple Pay / Revolut.
 
-## 🚧 Czego jeszcze nie ma (świadome ograniczenia MVP)
+## 🚧 Not yet (known MVP limits)
 
-- **OCR nie działa w Expo Go** — flow i parser są gotowe, ale samo rozpoznawanie tekstu wymaga development builda (patrz niżej).
-- Brak napiwku/serwisu doliczanego do rachunku.
-- Brak ekranu "kto komu winien" (jest już gotowy **algorytm** rozliczeń w `utils/settlement.ts`, ale nie jest jeszcze podłączony do żadnego ekranu).
-- Brak integracji z płatnościami (BLIK/przelew).
-- Tylko iOS/Expo Go — brak natywnego builda (EAS), testów automatycznych i publikacji w App Store.
+- **On-device OCR does not run in Expo Go** — cloud OCR via Gemini works with an API key; ML Kit / Vision needs a dev build (see below).
+- No tip / service charge split.
+- No “who owes whom” screen yet (settlement **algorithm** exists in `utils/settlement.ts` but is not wired to UI).
+- No payment integration (BLIK / bank transfer).
+- iOS / Expo Go only — no EAS production build, automated tests, or App Store release yet.
 
 ---
 
-## 📷 Skanowanie paragonu i OCR
+## 📷 Receipt scanning & OCR
 
-Rozpoznawanie działa obecnie przez **Gemini 3.6 Flash** (`utils/geminiReceipt.ts`) — model multimodalny, który dostaje zdjęcie i sam zwraca gotowy JSON z nazwą lokalu i pozycjami (nazwa + cena). To zwykłe zapytanie `fetch` do REST API, więc **działa w Expo Go bez żadnego dev builda**.
+Scanning uses **Gemini 3.6 Flash** (`utils/geminiReceipt.ts`) — a multimodal model that takes the photo and returns structured JSON (venue name + line items with prices). It’s a plain `fetch` to the REST API, so **it works in Expo Go without a dev build**.
 
-### Jak skonfigurować klucz API
+### How to configure the API key
 
-1. Wejdź na [Google AI Studio](https://aistudio.google.com/apikey), zaloguj się kontem Google i kliknij **Create API key** (za darmo, bez karty płatniczej).
-2. W katalogu `splitit/` skopiuj `.env.example` do `.env` (albo po prostu edytuj istniejący `.env`).
-3. Wklej klucz:
+1. Go to [Google AI Studio](https://aistudio.google.com/apikey), sign in with Google, and click **Create API key** (free tier; no credit card required for basic use).
+2. In the `splitit/` folder, copy `.env.example` to `.env` (or edit the existing `.env`).
+3. Paste your key:
    ```
-   EXPO_PUBLIC_GEMINI_API_KEY=twoj_klucz_tutaj
+   EXPO_PUBLIC_GEMINI_API_KEY=your_key_here
    ```
-4. Zrestartuj Metro z czyszczeniem cache — zmienne env są wbudowywane w bundle na starcie:
+4. Restart Metro with a clean cache — env vars are baked into the bundle at startup:
    ```bash
    npx expo start -c
    ```
 
-Prefiks `EXPO_PUBLIC_` jest wymagany — tylko takie zmienne Expo wbudowuje do JS-a. `.env` jest w `.gitignore`, więc klucz nigdy nie trafi do repo.
+The `EXPO_PUBLIC_` prefix is required — only those variables are inlined into the JS bundle. `.env` is in `.gitignore`, so the key should not be committed.
 
-> ⚠️ **Ograniczenie prototypu:** klucz API ląduje w bundle'u aplikacji, czyli teoretycznie da się go wyciągnąć z zainstalowanej apki. Do własnego użytku i testów ze znajomymi to nieistotne — przed publicznym wydaniem trzeba by przenieść wywołanie Gemini za cienki backend-proxy, żeby klucz nigdy nie trafiał na telefon.
+> ⚠️ **Prototype limitation:** the API key ends up in the app bundle, so it could be extracted from a distributed build. Fine for personal use and demos — for a public release, move Gemini calls behind a small backend proxy so the key never ships on the device.
 >
-> **Darmowy limit:** Google Cloud Vision (alternatywa) daje 1000 skanów/mies. za darmo na stałe; Gemini w AI Studio ma własny darmowy tier w podobnych okolicach — do dzielenia rachunków ze znajomymi realnie nie zapłacisz nic.
+> **Free tier:** Gemini in AI Studio has a generous free quota for hobby use; splitting bills with friends should cost nothing in practice.
 
 ### Fallback: on-device OCR (development build)
 
-Warstwa `utils/ocr.ts` obsługuje też on-device OCR (Google ML Kit / Apple Vision) jako alternatywę bez wysyłania zdjęcia do chmury — ale to moduł natywny, więc wymaga *development builda* (nie działa w Expo Go) i płatnego konta Apple Developer (99 USD/rok) do instalacji na fizycznym iPhonie:
+`utils/ocr.ts` also supports on-device OCR (Google ML Kit / Apple Vision) so photos never leave the device — but that’s a native module, so it requires a **development build** (not Expo Go) and a paid Apple Developer account ($99/year) to install on a physical iPhone:
 
 ```bash
 npx expo install expo-mlkit-ocr expo-build-properties expo-dev-client
 eas build --profile development --platform ios
 ```
 
-Ekran skanowania (`app/scan.tsx`) sam wybiera silnik: **Gemini, jeśli klucz jest ustawiony → on-device, jeśli dostępny → w innym wypadku ręczna edycja.** Zmiana silnika nie wymaga modyfikacji żadnego ekranu.
+The scan screen (`app/scan.tsx`) picks the engine automatically: **Gemini if the key is set → on-device if available → otherwise manual entry.** Switching engines does not require changing other screens.
 
 ---
 
-## 🛠️ Stack technologiczny
+## 🛠️ Tech stack
 
-| Warstwa | Technologia |
+| Layer | Technology |
 |---|---|
 | Framework | [Expo](https://expo.dev) SDK 57 (managed workflow) + TypeScript |
-| Nawigacja | [Expo Router](https://docs.expo.dev/router/introduction/) (routing plikowy) |
-| State management | [Zustand](https://zustand-demo.pmnd.rs/) + middleware `persist` |
-| Trwałość danych | `@react-native-async-storage/async-storage` |
-| Dolne panele | [`@gorhom/bottom-sheet`](https://gorhom.github.io/react-native-bottom-sheet/) |
-| Animacje / gesty | `react-native-reanimated` v4 (+ `react-native-worklets`), `react-native-gesture-handler` |
-| Wizualne efekty | `expo-blur`, `expo-linear-gradient`, `expo-haptics` |
-| Testowanie na telefonie | **Expo Go** (bez potrzeby Maca — development na Windowsie) |
+| Navigation | [Expo Router](https://docs.expo.dev/router/introduction/) (file-based routing) |
+| State | [Zustand](https://zustand-demo.pmnd.rs/) + `persist` middleware |
+| Persistence | `@react-native-async-storage/async-storage` |
+| Bottom sheets | [`@gorhom/bottom-sheet`](https://gorhom.github.io/react-native-bottom-sheet/) |
+| Animation / gestures | `react-native-reanimated` v4 (+ `react-native-worklets`), `react-native-gesture-handler` |
+| Visual effects | `expo-blur`, `expo-linear-gradient`, `expo-haptics` |
+| Device testing | **Expo Go** (no Mac required — develop on Windows) |
 
 ---
 
-## 📂 Struktura projektu
+## 📂 Project structure
 
 ```
 splitit/
-├── app/                        # Ekrany (Expo Router — routing plikowy)
+├── app/                        # Screens (Expo Router)
 │   ├── _layout.tsx             # Root layout: GestureHandlerRootView, Stack, dark theme
-│   ├── index.tsx               # Ekran startowy — skan / ręcznie / demo / historia
-│   ├── scan.tsx                # Zdjęcie paragonu + OCR (lub info o braku OCR)
-│   ├── verify.tsx              # Weryfikacja i edycja rozpoznanych pozycji
-│   ├── people.tsx              # "Kto przy stole?" — osoby dzielące rachunek
-│   ├── split.tsx               # Wirtualny paragon — przypisywanie osób do pozycji
-│   ├── summary.tsx             # Modal podsumowania ("kto za co ile")
+│   ├── index.tsx               # Home — scan / manual / demo / history
+│   ├── scan.tsx                # Receipt photo + OCR
+│   ├── verify.tsx              # Verify and edit recognized items
+│   ├── people.tsx              # Who's at the table?
+│   ├── split.tsx               # Virtual receipt — assign people to items
+│   ├── summary.tsx             # Summary modal
 │   └── history/
-│       ├── index.tsx           # Lista zarchiwizowanych paragonów
-│       └── [id].tsx            # Szczegóły jednego zarchiwizowanego paragonu
+│       ├── index.tsx           # Archived receipts list
+│       └── [id].tsx            # Single archived receipt detail
 │
 ├── components/
-│   ├── ReceiptHeader.tsx       # Nagłówek paragonu (nazwa, data, suma)
-│   ├── ReceiptItemRow.tsx      # Pojedyncza pozycja na paragonie + mini-avatary
-│   ├── PersonAvatar.tsx        # Avatar osoby (inicjały na gradiencie)
-│   ├── AssignPeopleSheet.tsx   # Bottom Sheet: przypisywanie osób do pozycji
-│   ├── ManagePeopleSheet.tsx   # Bottom Sheet: dodawanie/usuwanie osób
-│   └── SummaryFooter.tsx       # Sticky footer z live-sumami + przycisk "Podsumuj"
+│   ├── ReceiptHeader.tsx       # Receipt header (name, date, total)
+│   ├── ReceiptItemRow.tsx      # Line item + mini avatars
+│   ├── PersonAvatar.tsx        # Person avatar (initials on gradient)
+│   ├── AssignPeopleSheet.tsx   # Bottom sheet: assign people to item
+│   ├── ManagePeopleSheet.tsx   # Bottom sheet: add/remove people
+│   └── SummaryFooter.tsx       # Sticky footer + "Summary" button
 │
 ├── store/
-│   └── useReceiptStore.ts      # Zustand store — cała logika stanu i persystencji
+│   └── useReceiptStore.ts      # Zustand store — state and persistence
 │
 ├── data/
-│   └── mockReceipt.ts          # Testowy paragon (8 pozycji) + testowe osoby
+│   └── mockReceipt.ts          # Sample receipt (8 items) + sample people
 │
 ├── types/
-│   └── index.ts                # Typy: Person, ReceiptItem, Receipt, ArchivedReceipt
+│   └── index.ts                # Person, ReceiptItem, Receipt, ArchivedReceipt
 │
 ├── utils/
-│   ├── currency.ts             # Formatowanie kwot ("zł"), inicjały imion
-│   ├── ocr.ts                  # Warstwa OCR — wykrywa i wywołuje silnik natywny
-│   ├── receiptParser.ts        # Tekst z OCR → pozycje paragonu (heurystyki PL)
-│   ├── split.ts                # Sprawiedliwy podział kwot co do grosza
-│   ├── shareMessage.ts         # Budowanie tekstu podsumowania do udostępnienia
-│   └── settlement.ts           # Algorytm minimalizacji transferów (jeszcze nie podłączony do UI)
+│   ├── currency.ts             # PLN formatting, initials
+│   ├── ocr.ts                  # OCR layer — native engine detection
+│   ├── receiptParser.ts        # OCR text → line items (PL receipt heuristics)
+│   ├── split.ts                # Fair split to the penny
+│   ├── shareMessage.ts         # Share text for summary
+│   └── settlement.ts           # Minimize transfers (not wired to UI yet)
 │
 └── constants/
-    └── theme.ts                 # Kolory, spacing, typografia, paleta kolorów osób
+    └── theme.ts                # Colors, spacing, typography, person palette
 ```
 
-### Model danych (`types/index.ts`)
+### Data model (`types/index.ts`)
 
 ```ts
 type Person = { id: string; name: string; color: string };
@@ -149,7 +149,7 @@ type ReceiptItem = {
   name: string;
   price: number;
   quantity: number;
-  assignedPersonIds: string[]; // kto płaci za tę pozycję (podział równy między nich)
+  assignedPersonIds: string[]; // who pays for this item (even split among them)
 };
 
 type ArchivedReceipt = {
@@ -158,24 +158,24 @@ type ArchivedReceipt = {
   date: string;
   savedAt: string;
   items: ReceiptItem[];
-  peopleSnapshot: Person[]; // snapshot osób z momentu archiwizacji
+  peopleSnapshot: Person[]; // people at archive time
   total: number;
 };
 ```
 
-**Kluczowa logika liczenia** (w `useReceiptStore` i na ekranach `index`/`summary`): dla każdej pozycji kwota `price` dzieli się równo przez liczbę osób w `assignedPersonIds`. Pozycje z pustym `assignedPersonIds` są traktowane jako "nieprzypisane" i wizualnie wyróżnione (czerwony akcent), żeby użytkownik wiedział, że rozliczenie nie jest jeszcze kompletne.
+**Core calculation** (in `useReceiptStore` and on `split` / `summary`): for each item, `price` is split evenly across `assignedPersonIds`. Items with an empty `assignedPersonIds` are **unassigned** and highlighted so the bill isn’t marked complete by mistake.
 
 ---
 
-## ▶️ Jak uruchomić projekt (Windows + Expo Go, bez Maca)
+## ▶️ How to run (Windows + Expo Go, no Mac)
 
-### Wymagania
+### Requirements
 
-- [Node.js](https://nodejs.org/) (sprawdzone na v24, powinno działać od v18+)
-- Telefon iPhone z zainstalowaną aplikacją **[Expo Go](https://apps.apple.com/app/expo-go/id982107779)** z App Store
-- Telefon i komputer **w tej samej sieci Wi-Fi**
+- [Node.js](https://nodejs.org/) (tested on v24; v18+ should work)
+- iPhone with **[Expo Go](https://apps.apple.com/app/expo-go/id982107779)** from the App Store
+- Phone and computer on the **same Wi‑Fi network**
 
-### Instalacja i start
+### Install and start
 
 ```powershell
 cd splitit
@@ -183,56 +183,56 @@ npm install
 npx expo start
 ```
 
-W terminalu pojawi się **QR kod**. Zeskanuj go:
-- z aplikacji **Expo Go** (przycisk "Scan QR code"), albo
-- wbudowanym aparatem iPhone'a (poprosi o otwarcie w Expo Go).
+Scan the **QR code** in the terminal:
+- from **Expo Go** (“Scan QR code”), or
+- with the iPhone Camera app (opens in Expo Go).
 
-Aplikacja się zbuduje i otworzy na telefonie. Każda zmiana kodu = automatyczny hot-reload.
+The app loads on your phone; code changes hot-reload.
 
-### Przydatne komendy
+### Useful commands
 
-| Komenda | Co robi |
+| Command | Purpose |
 |---|---|
-| `npx expo start` | Start dev servera + QR kod |
-| `npx expo start --tunnel` | Jak wyżej, ale przez internet (gdy QR/Wi-Fi nie działa — wolniejsze, ale zawsze się połączy) |
-| `npx tsc --noEmit` | Sprawdzenie typów TypeScript bez budowania |
-| `npx expo-doctor` | Diagnostyka konfiguracji projektu Expo |
+| `npx expo start` | Dev server + QR code |
+| `npx expo start --tunnel` | Tunnel mode when LAN QR doesn’t work (slower, more reliable) |
+| `npx tsc --noEmit` | TypeScript check without building |
+| `npx expo-doctor` | Expo project diagnostics |
 
-### Rozwiązywanie problemów
+### Troubleshooting
 
-- **Port zajęty** — `npx expo start --port 8082` (albo dowolny inny wolny port).
-- **QR nie łączy się** — użyj `--tunnel` (patrz wyżej) lub sprawdź, czy firewall nie blokuje sieci lokalnej.
-- **Coś się "posypało" po zmianach** — potrząśnij telefonem w Expo Go → **Reload**, albo wpisz `r` w terminalu z działającym `expo start`.
-
----
-
-## 🗺️ Roadmap / Plany rozwoju
-
-### Faza 1 — Dopracowanie MVP
-- [x] Ręczna edycja paragonu — dodawanie/usuwanie/edycja pozycji (nazwa, cena) bez potrzeby OCR.
-- [x] Poprawne zaokrąglanie groszy przy nierównym podziale (np. `38,00 zł / 3`).
-- [ ] Napiwek / serwis — rozdzielany proporcjonalnie do tego, ile kto zjadł.
-
-### Faza 2 — Finalne rozliczenie ("magic moment")
-- [x] Udostępnianie podsumowania — natywny Share Sheet do wysłania na czat grupowy.
-- [ ] Ekran "Kto komu winien" — UI na bazie już gotowego algorytmu w `utils/settlement.ts` (minimalna liczba transferów między osobami, nie każdy-z-każdym).
-- [ ] Deep link do BLIK-a / przelewu z gotową kwotą.
-
-### Faza 3 — Skanowanie paragonu
-- [x] Zdjęcie paragonu (aparat/galeria) + ekran weryfikacji rozpoznanych pozycji.
-- [x] Wymienialna warstwa OCR + parser paragonu (heurystyki dla polskich paragonów).
-- [ ] Development build z `expo-mlkit-ocr` — realne rozpoznawanie tekstu on-device.
-- [ ] Dostrajanie parsera na prawdziwych zdjęciach paragonów (ilości, wagi, rabaty).
-
-### Faza 4 — Polish i produkcja
-- [ ] Zapisani "znajomi" / szybkie presety grup (częściowo już mamy — osoby persystują między paragonami).
-- [ ] Testy jednostkowe logiki store i algorytmu rozliczeń (Jest).
-- [ ] Prawdziwy build (EAS Build) + TestFlight — wyjście z Expo Go.
-- [ ] Ikona aplikacji, splash screen, ewentualnie tryb light mode.
-- [ ] Dostępność (VoiceOver, Dynamic Type).
+- **Port in use** — `npx expo start --port 8082` (or any free port).
+- **QR won’t connect** — try `--tunnel` or check firewall / local network.
+- **Weird state after changes** — shake the phone in Expo Go → **Reload**, or press `r` in the Expo terminal.
 
 ---
 
-## 🎨 Filozofia designu
+## 🗺️ Roadmap
 
-Ciemny, "fintech premium" motyw inspirowany Apple Pay / Revolut: dużo przestrzeni, gradienty, blur, haptic feedback przy interakcjach i płynne mikro-animacje (Reanimated) — appka ma być przyjemna w dotyku, a nie tylko funkcjonalna. Wszystkie kolory, odstępy i typografia są scentralizowane w `constants/theme.ts`.
+### Phase 1 — MVP polish
+- [x] Manual receipt editing — add/remove/edit items without OCR.
+- [x] Fair rounding for uneven splits (e.g. 38.00 PLN ÷ 3).
+- [ ] Tip / service charge — split proportionally by consumption.
+
+### Phase 2 — Final settlement (“magic moment”)
+- [x] Share summary — native Share Sheet for group chats.
+- [ ] “Who owes whom” UI using `utils/settlement.ts` (minimal transfers).
+- [ ] Deep link to BLIK / transfer with prefilled amount.
+
+### Phase 3 — Receipt scanning
+- [x] Receipt photo (camera/gallery) + verification screen.
+- [x] Pluggable OCR layer + receipt parser (Polish receipt heuristics).
+- [ ] Dev build with `expo-mlkit-ocr` — on-device text recognition.
+- [ ] Tune parser on real receipts (quantities, weights, discounts).
+
+### Phase 4 — Polish & production
+- [ ] Saved friends / group presets (people already persist across receipts).
+- [ ] Unit tests for store logic and settlement (Jest).
+- [ ] EAS Build + TestFlight — beyond Expo Go.
+- [ ] App icon, splash, optional light mode.
+- [ ] Accessibility (VoiceOver, Dynamic Type).
+
+---
+
+## 🎨 Design philosophy
+
+Dark “fintech premium” look inspired by Apple Pay / Revolut: generous spacing, gradients, blur, haptics, and smooth micro-animations (Reanimated). Colors, spacing, and typography live in `constants/theme.ts`.
