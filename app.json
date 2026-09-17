@@ -24,7 +24,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SplitIt! potrzebuje dostępu do zdjęć, żeby wczytać paragon.",
+          "cameraPermission": "SplitIt! potrzebuje aparatu, żeby zrobić zdjęcie paragonu."
+        }
+      ]
     ]
   }
 }

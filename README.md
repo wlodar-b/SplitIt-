@@ -2,14 +2,27 @@
 
 **SplitIt!** to aplikacja mobilna (iOS, budowana w Expo/React Native), która rozwiązuje odwieczny problem wspólnych kolacji ze znajomymi: *"kto ile powinien zapłacić?"*.
 
-Zamysł: po wspólnym wyjściu robisz zdjęcie paragonu, aplikacja rozpoznaje pozycje (w przyszłości — patrz [Roadmap](#-roadmap--plany-rozwoju)), a Ty w kilka dotknięć przypisujesz, kto co zamawiał. Na dole ekranu na żywo widzisz, ile wychodzi na każdą osobę.
+Zamysł: po wspólnym wyjściu robisz zdjęcie paragonu, aplikacja rozpoznaje pozycje, a Ty w kilka dotknięć przypisujesz, kto co zamawiał. Na dole ekranu na żywo widzisz, ile wychodzi na każdą osobę.
 
-> **Stan projektu:** aktywny prototyp/MVP skupiony na **UI/UX i logice dzielenia rachunku**. Skanowanie paragonu aparatem (OCR) jest na razie pominięte — pracujemy na danych testowych (mock), żeby dopracować idealny flow przypisywania i rozliczania.
+> **Stan projektu:** aktywny prototyp/MVP. Pełny flow (zdjęcie → weryfikacja pozycji → osoby → podział → podsumowanie) jest zbudowany i działa w Expo Go. **Sam silnik OCR wymaga development builda** — szczegóły niżej w [Skanowanie paragonu i OCR](#-skanowanie-paragonu-i-ocr).
+
+### Flow aplikacji
+
+```
+/ (start)  →  /scan          →  /verify           →  /people         →  /split           →  /summary
+              zdjęcie + OCR     poprawa pozycji      kto przy stole     przypisywanie       kto ile płaci
+                                                                                            → historia
+```
+
+Każdy krok da się pominąć lub wejść w niego bezpośrednio: z ekranu startowego można wpisać paragon ręcznie albo wczytać przykładowy, a rachunek w toku zawsze czeka na ekranie startowym w karcie „Rachunek w toku”.
 
 ---
 
 ## 📱 Co już działa
 
+- **Ekran startowy** — skan paragonu, wpisanie ręczne, przykładowy paragon, wznowienie rachunku w toku i wejście w historię.
+- **Zdjęcie paragonu** — aparat lub galeria (`expo-image-picker`), z podglądem; działa w Expo Go.
+- **Weryfikacja paragonu** — pełna ręczna edycja pozycji (nazwa, cena), dodawanie i usuwanie, nazwa lokalu, live suma.
 - **Wirtualny paragon** — lista pozycji (nazwa + cena) w estetycznej, minimalistycznej formie.
 - **Przypisywanie osób do pozycji** — tap na pozycję otwiera dolny panel (Bottom Sheet) z chipsami osób; można zaznaczyć kilka naraz — cena dzieli się równo między zaznaczonych.
 - **Mini-avatary pod pozycją** — od razu widać, kto "bierze" dany koszt (stos kółek w kolorach osób).
@@ -22,12 +35,47 @@ Zamysł: po wspólnym wyjściu robisz zdjęcie paragonu, aplikacja rozpoznaje po
 
 ## 🚧 Czego jeszcze nie ma (świadome ograniczenia MVP)
 
-- Brak aparatu/OCR — pozycje na paragonie są **danymi testowymi** (`data/mockReceipt.ts`), nie realnym skanem.
-- Brak ręcznej edycji pozycji paragonu (dodaj/usuń/zmień cenę) — "Nowy paragon" zawsze zaczyna od tego samego mocka.
-- Brak napiwku/serwisu i logiki zaokrąglania groszy przy nierównym podziale.
+- **OCR nie działa w Expo Go** — flow i parser są gotowe, ale samo rozpoznawanie tekstu wymaga development builda (patrz niżej).
+- Brak napiwku/serwisu doliczanego do rachunku.
 - Brak ekranu "kto komu winien" (jest już gotowy **algorytm** rozliczeń w `utils/settlement.ts`, ale nie jest jeszcze podłączony do żadnego ekranu).
-- Brak udostępniania podsumowania (Share Sheet) i integracji z płatnościami (BLIK/przelew).
+- Brak integracji z płatnościami (BLIK/przelew).
 - Tylko iOS/Expo Go — brak natywnego builda (EAS), testów automatycznych i publikacji w App Store.
+
+---
+
+## 📷 Skanowanie paragonu i OCR
+
+Rozpoznawanie działa obecnie przez **Gemini 3.6 Flash** (`utils/geminiReceipt.ts`) — model multimodalny, który dostaje zdjęcie i sam zwraca gotowy JSON z nazwą lokalu i pozycjami (nazwa + cena). To zwykłe zapytanie `fetch` do REST API, więc **działa w Expo Go bez żadnego dev builda**.
+
+### Jak skonfigurować klucz API
+
+1. Wejdź na [Google AI Studio](https://aistudio.google.com/apikey), zaloguj się kontem Google i kliknij **Create API key** (za darmo, bez karty płatniczej).
+2. W katalogu `splitit/` skopiuj `.env.example` do `.env` (albo po prostu edytuj istniejący `.env`).
+3. Wklej klucz:
+   ```
+   EXPO_PUBLIC_GEMINI_API_KEY=twoj_klucz_tutaj
+   ```
+4. Zrestartuj Metro z czyszczeniem cache — zmienne env są wbudowywane w bundle na starcie:
+   ```bash
+   npx expo start -c
+   ```
+
+Prefiks `EXPO_PUBLIC_` jest wymagany — tylko takie zmienne Expo wbudowuje do JS-a. `.env` jest w `.gitignore`, więc klucz nigdy nie trafi do repo.
+
+> ⚠️ **Ograniczenie prototypu:** klucz API ląduje w bundle'u aplikacji, czyli teoretycznie da się go wyciągnąć z zainstalowanej apki. Do własnego użytku i testów ze znajomymi to nieistotne — przed publicznym wydaniem trzeba by przenieść wywołanie Gemini za cienki backend-proxy, żeby klucz nigdy nie trafiał na telefon.
+>
+> **Darmowy limit:** Google Cloud Vision (alternatywa) daje 1000 skanów/mies. za darmo na stałe; Gemini w AI Studio ma własny darmowy tier w podobnych okolicach — do dzielenia rachunków ze znajomymi realnie nie zapłacisz nic.
+
+### Fallback: on-device OCR (development build)
+
+Warstwa `utils/ocr.ts` obsługuje też on-device OCR (Google ML Kit / Apple Vision) jako alternatywę bez wysyłania zdjęcia do chmury — ale to moduł natywny, więc wymaga *development builda* (nie działa w Expo Go) i płatnego konta Apple Developer (99 USD/rok) do instalacji na fizycznym iPhonie:
+
+```bash
+npx expo install expo-mlkit-ocr expo-build-properties expo-dev-client
+eas build --profile development --platform ios
+```
+
+Ekran skanowania (`app/scan.tsx`) sam wybiera silnik: **Gemini, jeśli klucz jest ustawiony → on-device, jeśli dostępny → w innym wypadku ręczna edycja.** Zmiana silnika nie wymaga modyfikacji żadnego ekranu.
 
 ---
 
@@ -52,7 +100,11 @@ Zamysł: po wspólnym wyjściu robisz zdjęcie paragonu, aplikacja rozpoznaje po
 splitit/
 ├── app/                        # Ekrany (Expo Router — routing plikowy)
 │   ├── _layout.tsx             # Root layout: GestureHandlerRootView, Stack, dark theme
-│   ├── index.tsx               # Ekran główny — wirtualny paragon
+│   ├── index.tsx               # Ekran startowy — skan / ręcznie / demo / historia
+│   ├── scan.tsx                # Zdjęcie paragonu + OCR (lub info o braku OCR)
+│   ├── verify.tsx              # Weryfikacja i edycja rozpoznanych pozycji
+│   ├── people.tsx              # "Kto przy stole?" — osoby dzielące rachunek
+│   ├── split.tsx               # Wirtualny paragon — przypisywanie osób do pozycji
 │   ├── summary.tsx             # Modal podsumowania ("kto za co ile")
 │   └── history/
 │       ├── index.tsx           # Lista zarchiwizowanych paragonów
@@ -77,6 +129,10 @@ splitit/
 │
 ├── utils/
 │   ├── currency.ts             # Formatowanie kwot ("zł"), inicjały imion
+│   ├── ocr.ts                  # Warstwa OCR — wykrywa i wywołuje silnik natywny
+│   ├── receiptParser.ts        # Tekst z OCR → pozycje paragonu (heurystyki PL)
+│   ├── split.ts                # Sprawiedliwy podział kwot co do grosza
+│   ├── shareMessage.ts         # Budowanie tekstu podsumowania do udostępnienia
 │   └── settlement.ts           # Algorytm minimalizacji transferów (jeszcze nie podłączony do UI)
 │
 └── constants/
@@ -152,19 +208,21 @@ Aplikacja się zbuduje i otworzy na telefonie. Każda zmiana kodu = automatyczny
 
 ## 🗺️ Roadmap / Plany rozwoju
 
-### Faza 1 — Dopracowanie MVP (najbliższe kroki)
-- [ ] Ręczna edycja paragonu — dodawanie/usuwanie/edycja pozycji (nazwa, cena) bez potrzeby OCR.
+### Faza 1 — Dopracowanie MVP
+- [x] Ręczna edycja paragonu — dodawanie/usuwanie/edycja pozycji (nazwa, cena) bez potrzeby OCR.
+- [x] Poprawne zaokrąglanie groszy przy nierównym podziale (np. `38,00 zł / 3`).
 - [ ] Napiwek / serwis — rozdzielany proporcjonalnie do tego, ile kto zjadł.
-- [ ] Poprawne zaokrąglanie groszy przy nierównym podziale (np. `38,00 zł / 3`).
 
 ### Faza 2 — Finalne rozliczenie ("magic moment")
+- [x] Udostępnianie podsumowania — natywny Share Sheet do wysłania na czat grupowy.
 - [ ] Ekran "Kto komu winien" — UI na bazie już gotowego algorytmu w `utils/settlement.ts` (minimalna liczba transferów między osobami, nie każdy-z-każdym).
-- [ ] Udostępnianie podsumowania — natywny Share Sheet (tekst/obrazek) do wysłania na czat grupowy.
 - [ ] Deep link do BLIK-a / przelewu z gotową kwotą.
 
-### Faza 3 — Skanowanie paragonu (odłożone na start)
-- [ ] Integracja `expo-camera` + OCR (Google Cloud Vision / ML Kit / on-device) do automatycznego rozpoznawania pozycji ze zdjęcia.
-- [ ] Ekran weryfikacji/korekty rozpoznanych pozycji przed przejściem do przypisywania.
+### Faza 3 — Skanowanie paragonu
+- [x] Zdjęcie paragonu (aparat/galeria) + ekran weryfikacji rozpoznanych pozycji.
+- [x] Wymienialna warstwa OCR + parser paragonu (heurystyki dla polskich paragonów).
+- [ ] Development build z `expo-mlkit-ocr` — realne rozpoznawanie tekstu on-device.
+- [ ] Dostrajanie parsera na prawdziwych zdjęciach paragonów (ilości, wagi, rabaty).
 
 ### Faza 4 — Polish i produkcja
 - [ ] Zapisani "znajomi" / szybkie presety grup (częściowo już mamy — osoby persystują między paragonami).
